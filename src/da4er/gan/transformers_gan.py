@@ -24,14 +24,14 @@ class BARTGAN(GANAugmentation):
 
     def _get_normalized_dictionary(self):
         candidates = self.preprocessor.encoder_embed
-        candidates = candidates / tf.reshape(tf.norm(candidates, axis=-1), shape=(-1, 1))
+        candidates = tf.linalg.l2_normalize(candidates, axis=-1)
         return candidates.numpy()
 
     def augment(self, txt: str) -> str:
         tokenized_input = self.preprocessor.tokenizer.tokenize(txt)
-        if len(tokenized_input) == 0:
-            return txt
         embedding = self.preprocessor.preprocess(txt)
+        if embedding is None:
+            return txt
         embedding_size = np.shape(embedding)[0]
 
         if len(np.where(embedding[0] == 0)[0]) != 0:  # Find the dimensions until considered tokens
@@ -45,24 +45,38 @@ class BARTGAN(GANAugmentation):
 
         tmp_data = self.generator(input_syn, training=False)  # Target's synthetic embedding
         # Average between synthetic and original data for proper augmentation
-        tmp_data = (tf.reshape(tmp_data, shape=(embedding_size, self.dim)).numpy() + embedding) / 2
+        tmp_data = (tf.reshape(tmp_data, shape=(embedding_size, self.dim)) + embedding) / 2
+        # (tokens, embeddings)
+        tmp_data = tf.transpose(tmp_data)
+        # truncating only to relevant tokens
+        tmp_data = tmp_data[:target_len, :]
+        # Normalize each vector
+        tmp_data = tf.linalg.l2_normalize(tmp_data, axis=-1)
+        # Compute dot product
+        similarity = tf.linalg.matmul(tmp_data, self.normalized_dictionary, transpose_b=True)
+        # Sorting indices across tokens and truncating to up to 50 candidates
+        indices = tf.argsort(similarity, axis=-1, direction='DESCENDING')[:, :50]
+        results = similarity.numpy()
+        indices = indices.numpy()
+        final_shape = np.shape(indices)
 
         output_loc = []
-        for k in range(target_len):
-            original_norm = tmp_data[:, k] / np.linalg.norm(tmp_data[:, k])
-            similarity = np.dot(self.normalized_dictionary, np.reshape(original_norm, (-1, 1)))
-            for jj in range(np.shape(similarity)[0]):
-                similar = similarity[jj].item(0)
+        for k in range(final_shape[0]):
+            for jj in range(final_shape[1]):
+                token_index = indices[k, jj]
+                score = results[k, token_index]
 
                 # Define threshold for comparison
-                if self.low < similar < self.high:
-                    output_loc.append((k, jj, similar))
+                if self.low < score < self.high:
+                    output_loc.append((k, token_index, score))
         output_loc = sorted(output_loc, key=lambda x: x[2], reverse=True)
 
         output_txt = [[] for _ in range(self.dim)]  # Generate the possible combination
         for kk in range(len(output_loc)):
-            output_txt[output_loc[kk][0]].append(self.preprocessor.tokenizer.decode(output_loc[kk][1],
-                                                                                    skip_special_tokens=True))
+            token = self.preprocessor.tokenizer.decode(output_loc[kk][1], skip_special_tokens=True)
+            if tokenized_input[output_loc[kk][0]] == token and len(token.strip()) > 0:
+                continue
+            output_txt[output_loc[kk][0]].append((token, output_loc[kk][2]))
 
         synthetic_text = []
         for piece_id in range(target_len):
@@ -71,7 +85,8 @@ class BARTGAN(GANAugmentation):
 
             # Old tokens and the replacing tokens should be coherent
             filtered_candidates = []
-            for candidate in candidates:
+            for candidate_tuple in candidates:
+                candidate, score = candidate_tuple
                 if (old_fragment.startswith(" ") or old_fragment.startswith("Ġ")) \
                         != (candidate.startswith(" ") or candidate.startswith("Ġ")):
                     continue
