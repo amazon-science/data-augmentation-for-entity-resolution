@@ -52,15 +52,18 @@ class InputConverter:
 
 class OutputConverter:
     def generate_output(self, input_sample: InputSample) -> Iterable[str]:
-        return [input_sample.work_sample.original.to_json()] \
-               + [augmented_sample.to_json() for augmented_sample in input_sample.work_sample.augmented]
+        return [augmented_sample.to_json() for augmented_sample in input_sample.work_sample.augmented]
 
 
 class InputProcessor:
-    def __init__(self, augmentations: List[BaseAugmentation], input_converter=None, output_converter=None):
+    def __init__(self,
+                 augmentations: List[BaseAugmentation],
+                 input_converter=None, output_converter=None,
+                 skip_entities=False):
         self.augmentations = augmentations
         self.input_converter = InputConverter() if input_converter is None else input_converter
         self.output_converter = OutputConverter() if output_converter is None else output_converter
+        self.skip_entities = skip_entities
 
     def augment_sample(self, sample: Sample) -> List[Sample]:
         output = []
@@ -68,7 +71,8 @@ class InputProcessor:
             augmented_sample = dataclasses.replace(sample)
 
             augmented_sample.query = augmentation.augment(augmented_sample.query)
-            augmented_sample.entities = [augmentation.augment(entity) for entity in augmented_sample.entities]
+            if not self.skip_entities:
+                augmented_sample.entities = [augmentation.augment(entity) for entity in augmented_sample.entities]
 
             output.append(augmented_sample)
         return output

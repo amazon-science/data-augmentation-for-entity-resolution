@@ -40,9 +40,6 @@ def main(args):
               'Please try one of lexical / spelling / character / translation / back-translation')
         return
 
-    if args.percentage <= 0.0:
-        print("Invalid percentage: %.2f" % args.percentage)
-
     # Initialising formatters
     if args.format == "blink":
         input_converter = BlinkInputConverter()
@@ -72,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, required=True, help='Name of output file. Only generate json file.')
     parser.add_argument('--src-lex', type=str, default='wordnet', help='Source for lexical.')
     parser.add_argument('--src-lang-lex', type=str, default='eng', help='Source language for lexical.')
-    parser.add_argument('--chr-specific', type=str, nargs='+', default=RECOMMENDED_AUG_NAME,
+    parser.add_argument('--chr-specific', type=str, nargs='+', default=[RECOMMENDED_AUG_NAME],
                         help='Select insert, substitute, swap or delete method in character-level')
 
     parser.add_argument('--src-nmt', type=str, help='Source NMT location')

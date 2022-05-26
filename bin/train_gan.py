@@ -13,11 +13,12 @@ from tqdm import tqdm
 
 
 class GANModel:
-    def __init__(self, file, gan, epoch=30, batch_size=10, learning_rate=1e-4, dimension=6, loss_fig='GAN_Loss.png'):
+    def __init__(self, file, gan, epoch=30, batch_size=10, learning_rate=1e-4, dimension=6, loss_fig='GAN_Loss.png', max_samples=None):
         with np.load(file) as openfile:
-            # ori_data: original text, train_data: embedding of original text
+            # train_data: embedding of original text
             self.train_data = np.float64(openfile['train_data'])  # Match the type
-            self.ori_data = openfile['ori_data']
+        if max_samples is not None:
+            self.train_data = self.train_data[:max_samples]
         self.embedding_size = np.shape(self.train_data)[1]
         self.ori_syn_data = {}
 
@@ -264,7 +265,7 @@ class GANModel:
 
 def main(args):
     model = GANModel(args.input, args.gan, args.epoch, args.batch_size, args.learning_rate,
-                     args.dimension, args.loss_fig)
+                     args.dimension, args.loss_fig, args.max_samples)
     model.GAN_train()
     generator = model.generator
     generator.save(args.output)
@@ -282,6 +283,7 @@ if __name__ == "__main__":
     parser.add_argument('--learning-rate', type=float, default=1e-4, help='Learning rate used in GAN')
     parser.add_argument('--dimension', type=int, default=6, help='Number of tokens considered in BART-GAN')
     parser.add_argument('--loss-fig', type=str, default='GAN_Loss.png', help='Name of loss figure')
+    parser.add_argument('--max-samples', type=int, help='Maximum number of samples')
 
     args = parser.parse_args()
     main(args)

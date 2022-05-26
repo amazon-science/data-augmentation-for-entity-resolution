@@ -16,8 +16,6 @@ class BlinkInputConverter(InputConverter):
 
 class BlinkOutputConverter(OutputConverter):
     def generate_output(self, input_sample: InputSample) -> Iterable[str]:
-        # yield json.dumps(input_sample.raw_input)
-
         for augmented_sample in input_sample.work_sample.augmented:
             # This format only supports one entity per sample
             assert len(augmented_sample.entities) == 1

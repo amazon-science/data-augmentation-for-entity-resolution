@@ -38,7 +38,7 @@ class CharacterAugmentation(BaseAugmentation):
     def __init__(self, method):
         super().__init__()
         self.chr_aug = nac.RandomCharAug(action=method, aug_char_p=0.1, include_upper_case=False,
-                                         include_numeric=False, spec_char =' ')
+                                         include_numeric=False, spec_char=' ')
 
     def augment(self, txt: str) -> str:
         return self.chr_aug.augment(txt)
